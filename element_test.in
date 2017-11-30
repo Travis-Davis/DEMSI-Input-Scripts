@@ -1,0 +1,124 @@
+###############################################
+# General settings
+###############################################
+
+log		element_test.log
+atom_style	sphere
+dimension	2
+units		si
+
+###############################################
+# Simulation Domain
+###############################################
+
+variable natom equal 10000
+variable simlx equal 100000000
+variable simly equal 100000000
+
+variable ax0 equal ${simlx}*0.25
+variable ax1 equal ${simlx}*1.25
+variable ay0 equal ${simly}*0.25
+variable ay1 equal ${simly}*1.25
+
+include atoms.in
+
+###############################################
+# Constants
+###############################################
+
+variable	kn equal 1e6
+variable	damp equal 0.0
+variable	coeffFric equal 0.3
+variable	kt equal 0.5*${kn}
+
+variable	thickness equal 1.0
+variable	dens equal 900*${thickness}
+
+variable	airDensity equal 1.225
+variable	waterDensity equal 1017.0
+variable	windDragCoefficient equal 0.015
+variable	oceanDragCoefficient equal 0.0045
+
+###############################################
+# Geometry-related parameters
+###############################################
+
+#variable	nx equal 100
+#variable	ny equal 0.5*${nx}
+#variable	n_actual equal floor(${nx}*${ny})
+#variable	lx equal ${nx}*${diam}
+#variable	ly2 equal 0.5*${lx}
+
+###############################################
+# Create box
+###############################################
+#boundary	f f p
+
+#variable	x0 equal 0
+#variable	x1 equal ${lx}
+#region		boxreg block ${x0} ${x1} ${x0} ${x1} -${rad} ${rad}
+#create_box	1 boxreg
+
+#lattice	sq ${diam} origin 0.5 0.5 0
+#region		tophalf block 0 ${lx} ${ly2} ${lx} -${rad} ${rad} units box
+
+#create_atoms	1 region tophalf
+
+#include coast.in
+#include atoms.in
+#set		group all density ${dens}
+#set		group all mass ${minmass}
+
+#compute rad all property/atom radius
+#variable area atom PI*c_rad^2
+
+###############################################
+# Forcing equations
+###############################################
+include forcing.in
+
+variable velocity atom sqrt(vx*vx+vy*vy)
+
+###############################################
+# Fixes and pair styles
+###############################################
+comm_style	tiled
+variable	tcol equal PI/sqrt(2*${kn}/${minmass}-${damp}^2/4.0)
+variable	dt equal ${tcol}*0.02
+timestep	${dt}
+
+compute stress all stress/atom NULL
+variable atomstress atom c_stress[1]+c_stress[2]
+
+# Test
+# pair_style	gran/hooke ${kn} ${kt} ${damp} 0 ${coeffFric} 1
+pair_style hybrid/overlay soft 3000 gran/hooke ${kn} ${kt} ${damp} 0 ${coeffFric} 1
+pair_coeff	* * soft -10000000000
+pair_coeff  * * gran/hooke
+
+fix		1 all nve/sphere disc
+fix		2 all enforce2d
+fix		3 all addforce v_totfx v_totfy 0.0
+fix		4 all balance 10000 1.1 rcb weight neigh 1.0
+fix		wx all wall/gran hooke ${kn} ${kt} ${damp} 0 ${coeffFric} 1 xplane ${x0} ${x1}
+fix		wy all wall/gran hooke ${kn} ${kt} ${damp} 0 ${coeffFric} 1 yplane ${y0} ${y1}
+
+###############################################
+# Run settings
+###############################################
+
+variable	dumpfreq equal 500
+variable	logfreq equal 100
+
+variable	skin equal 0.3*${dia}
+neighbor	${skin} bin
+
+comm_modify	vel yes cutoff ${dia}
+
+thermo_style	custom step cpu atoms ke lx
+thermo_modify	flush yes lost warn
+thermo		${logfreq}
+
+dump		1 all custom ${dumpfreq} DUMP/element_test.dump id type mass diameter x y z v_velocity v_atomstress
+
+run		10000

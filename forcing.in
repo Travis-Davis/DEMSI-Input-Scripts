@@ -1,0 +1,68 @@
+###################
+#     Forcing     #
+###################
+
+#Forcing Schemes
+##################
+#Vortex
+#variable	xc equal 0.5*${lx}
+#variable	yc equal 0.5*${lx}-50000.0
+#variable	rx atom x-${xc}
+#variable	ry atom y-${yc}
+#variable	rmag atom sqrt(v_rx^2+v_ry^2)
+#variable	rxn atom v_rx/v_rmag
+#variable	ryn atom v_ry/v_rmag
+#variable	kcrossrx atom -v_ryn
+#variable	kcrossry atom v_rxn
+#variable	omegaR atom ${omega}*v_rmag
+#variable	lR atom ${lambda}/v_rmag
+#variable	prefac atom (v_omegaR<v_lR)*v_omegaR+(v_lR<=v_omegaR)*v_lR
+#variable	ugx atom v_prefac*v_kcrossrx
+#variable	ugy atom v_prefac*v_kcrossry
+
+#Convergent wind-field at xc // Periodic (no y-component)
+#variable windmagx equal 10
+#variable windmagy equal 7
+#variable xc equal 0.5*${lx}
+#variable knumx equal PI/${xc} # One COS peak in wind field
+#variable rot equal 1
+#variable deltheta equal 2*PI*${rot}
+#variable angramp atom ramp(0,${deltheta})
+#variable wper atom cos(${knumx}*(${xc}-x)+v_angramp)
+
+#variable xbool atom v_wper*((x<${xc})+(x>=${xc})*(-1))
+#variable ugx atom ${windmagx}*v_xbool
+#variable ugy atom ${windmagy}*(-1)
+
+#Experimental
+#Uniaxial convergent (linear) wind field
+variable windmaxx equal 20
+variable windmaxy equal 0
+variable windmx   equal -${windmaxx}/${simlx}
+variable windmy   equal -${windmaxy}/${simly}
+
+variable windmagx atom ${windmx}*x+${windmaxx}
+variable windmagy atom ${windmy}*y+${windmaxy}
+
+variable ugx atom v_windmagx
+variable ugy atom v_windmagy
+
+#Force Calculation
+##################
+variable vmaga atom sqrt((v_ugx-vx)*(v_ugx-vx)+(v_ugy-vy)*(v_ugy-vy))
+variable vmago atom sqrt((-vx)*(-vx)+(-vy)*(-vy))
+
+variable	windfx atom ${airDensity}*${windDragCoefficient}*v_vmaga*(v_ugx-vx)
+variable	windfy atom ${airDensity}*${windDragCoefficient}*v_vmaga*(v_ugy-vy)
+variable	waterfx atom ${waterDensity}*${oceanDragCoefficient}*v_vmago*(-vx)
+variable	waterfy atom ${waterDensity}*${oceanDragCoefficient}*v_vmago*(-vy)
+
+variable	totfx atom (v_windfx+v_waterfx)*v_area
+variable	totfy atom (v_windfy+v_waterfy)*v_area
+
+# Vestigial
+##################
+# variable rot equal 0.1
+# variable deltheta equal 2*PI*${rot}
+# variable ramp equal ramp(0,${deltheta})
+# variable kx equal 2*PI*${lx}
